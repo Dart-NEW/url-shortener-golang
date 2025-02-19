@@ -30,6 +30,7 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	var request ShortenRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
 	}
 	defer r.Body.Close()
 

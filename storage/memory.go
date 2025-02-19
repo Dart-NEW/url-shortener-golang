@@ -24,8 +24,8 @@ func NewMemoryStorage() *MemoryStorage {
 
 // Post для сохранения оригинального URL и возврата сокращённого
 func (s *MemoryStorage) Post(originalURL string) string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	for short, original := range s.urls {
 		if original == originalURL {
@@ -40,8 +40,8 @@ func (s *MemoryStorage) Post(originalURL string) string {
 
 // Get возвращает оригиналный URL по сокращённому
 func (s *MemoryStorage) Get(shortURL string) (string, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	originalUrl, exists := s.urls[shortURL]
 	return originalUrl, exists
