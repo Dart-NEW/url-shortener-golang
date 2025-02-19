@@ -5,6 +5,11 @@ import (
 	"url-shortener-golang/shortener"
 )
 
+type Storage interface {
+	Post(originalURL string) string
+	Get(shortURL string) (string, bool)
+}
+
 type MemoryStorage struct {
 	mu   sync.RWMutex
 	urls map[string]string
@@ -19,8 +24,8 @@ func NewMemoryStorage() *MemoryStorage {
 
 // Post для сохранения оригинального URL и возврата сокращённого
 func (s *MemoryStorage) Post(originalURL string) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	for short, original := range s.urls {
 		if original == originalURL {
@@ -41,8 +46,3 @@ func (s *MemoryStorage) Get(shortURL string) (string, bool) {
 	originalUrl, exists := s.urls[shortURL]
 	return originalUrl, exists
 }
-
-// Временная generateShortURL для создания короткого URL
-// func generateShortURL(originalURL string) string {
-// 	return "short_" + originalURL[:5]
-// }
