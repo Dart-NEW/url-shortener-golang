@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"url-shortener-golang/storage"
@@ -34,10 +35,14 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	shortURL := h.storage.Post(request.URL)
+	shortURL, err := h.storage.Post(request.URL)
+
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 
 	response := map[string]string{"short_url": shortURL}
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -50,14 +55,17 @@ func (h *Handler) Resolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	originalURL, exists := h.storage.Get(shortURL)
-	if !exists {
-		http.Error(w, "URL not found", http.StatusNotFound)
+	originalURL, err := h.storage.Get(shortURL)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			http.Error(w, "URL not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	response := map[string]string{"original_url": originalURL}
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
