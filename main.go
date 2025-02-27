@@ -1,12 +1,21 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"url-shortener-golang/api"
+	pb "url-shortener-golang/proto"
 	"url-shortener-golang/storage"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
@@ -33,11 +42,43 @@ func main() {
 		log.Fatalf("unsupported storage type: %s", *storageType)
 	}
 
-	h := api.NewHandler(st)
-
+	httpHandler := api.NewHandler(st)
 	mux := http.NewServeMux()
-	h.RegisterRoutes(mux)
+	httpHandler.RegisterRoutes(mux)
 
-	log.Println("Starting server on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	httpServer := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
+	grpcServer := grpc.NewServer()
+	pb.RegisterURLShortenerServer(grpcServer, api.NewGRPCServer(st))
+	reflection.Register(grpcServer)
+	listener, err := net.Listen("tcp", ":50051")
+	if err != nil {
+		log.Fatalf("Failed to listen gRPC: %v", err)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Println("Starting HTTP server on :8080")
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("HTTP server error: %v", err)
+		}
+	}()
+
+	go func() {
+		log.Println("Starting gRPC server on :50051")
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Fatalf("gRPC server error: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+
+	log.Println("Shutting down servers...")
+	httpServer.Shutdown(context.Background())
+	grpcServer.GracefulStop()
 }

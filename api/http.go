@@ -8,7 +8,7 @@ import (
 	"url-shortener-golang/storage"
 )
 
-type ShortenRequest struct {
+type ShortenRequestHttp struct {
 	URL string `json:"url"`
 }
 
@@ -28,7 +28,7 @@ func (h *Handler) Shorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var request ShortenRequest
+	var request ShortenRequestHttp
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
