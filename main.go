@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log"
 	"net"
 	"net/http"
@@ -14,32 +13,37 @@ import (
 	pb "url-shortener-golang/proto"
 	"url-shortener-golang/storage"
 
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
-	storageType := flag.String("storage", "memory", "Storage type (memory|postgres)")
-	postgresConn := flag.String("postgres-conn", "", "PostgreSQL connection string")
-	flag.Parse()
+	if err := godotenv.Load(); err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	storageType := os.Getenv("STORAGE_TYPE")
+
+	// storageType := flag.String("storage", "memory", "Storage type (memory|postgres)")
+	// postgresConn := flag.String("postgres-conn", "", "PostgreSQL connection string")
+	// flag.Parse()
 	var st storage.Storage
 	var err error
-	switch *storageType {
+	switch storageType {
 	case "memory":
 		st = storage.NewMemoryStorage()
 		log.Println("Using in-memory storage")
 	case "postgres":
-		if *postgresConn == "" {
-			log.Fatal("PostgreSQL connection string is required")
-		}
-		st, err = storage.NewPostgresStorage(*postgresConn)
+		postgresConn := generatePostgresConn()
+		st, err = storage.NewPostgresStorage(postgresConn)
 		if err != nil {
 			log.Fatalf("Failed to initialize PostgreSQL storage: %v", err)
 		}
 		defer st.Close()
 		log.Println("Using PostgreSQL storage")
 	default:
-		log.Fatalf("unsupported storage type: %s", *storageType)
+		log.Fatalf("unsupported storage type: %s", storageType)
 	}
 
 	httpHandler := api.NewHandler(st)
@@ -81,4 +85,13 @@ func main() {
 	log.Println("Shutting down servers...")
 	httpServer.Shutdown(context.Background())
 	grpcServer.GracefulStop()
+}
+
+func generatePostgresConn() string {
+	return "postgres://" +
+		os.Getenv("POSTGRES_USER") + ":" +
+		os.Getenv("POSTGRES_PASSWORD") + "@" +
+		os.Getenv("POSTGRES_HOST") + ":" +
+		os.Getenv("POSTGRES_PORT") + "/" +
+		os.Getenv("POSTGRES_DB") + "?sslmode=disable"
 }

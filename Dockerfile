@@ -9,7 +9,8 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 WORKDIR /root/
 COPY --from=builder /app/url-shortener .
+COPY --from=builder /app/.env .
 
-EXPOSE 8080 50051
+EXPOSE ${HTTP_PORT} ${GRPC_PORT}
 
-CMD [ "./url-shortener", "--storage=postgres", "--postgres-conn=postgres://postgres:postgres@postgres/shortener?sslmode=disable" ]
+CMD [ "./url-shortener" ]
